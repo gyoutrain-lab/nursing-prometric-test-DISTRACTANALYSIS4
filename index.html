@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCFHS Nursing Simulator | Psychiatric Nursing | Level 4</title>
+    <style>
+        :root {
+            --primary: #1a2a6c;
+            --secondary: #b21f1f;
+            --accent: #fdbb2d;
+            --bg: #f8f9fa;
+            --text: #333;
+            --success: #28a745;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            color: var(--text);
+        }
+
+        .screen { display: none; padding: 20px; max-width: 900px; margin: auto; }
+        .active { display: block; }
+
+        .welcome-card, .result-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-top: 50px;
+        }
+
+        input[type="text"] {
+            padding: 12px;
+            width: 80%;
+            margin: 20px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .exam-header {
+            background: var(--primary);
+            color: white;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .quiz-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+
+        .vignette {
+            font-size: 1.15rem;
+            font-weight: 600;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            border-left: 5px solid var(--secondary);
+            padding-left: 15px;
+        }
+
+        .options-grid { display: grid; gap: 12px; }
+
+        .opt {
+            padding: 15px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            background: #fff;
+            font-weight: 500;
+            text-align: left;
+        }
+
+        .opt:hover { background: #f0f4ff; border-color: var(--primary); }
+        .opt.selected { background: var(--primary); color: white; border-color: var(--primary); }
+
+        #rationale-area {
+            margin-top: 20px;
+            padding: 20px;
+            background: #e7f3ff;
+            border-left: 5px solid var(--primary);
+            border-radius: 8px;
+            display: none;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: 0.3s;
+        }
+
+        .btn-start { background: var(--primary); color: white; }
+        .btn-next { background: var(--success); color: white; }
+        .btn-rationale { background: var(--accent); color: #333; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin: 20px auto;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="welcome-screen" class="screen active">
+        <div class="welcome-card">
+            <h1>SCFHS NURSING MOCK V3</h1>
+            <p>High-Level Clinical Vignettes | Psychiatric Nursing  (Level 4 Difficulty)</p>
+            <input type="text" id="candidate-name" placeholder="Enter Full Name">
+            <br>
+            <button class="btn btn-start" onclick="startExam()">Start Examination</button>
+        </div>
+    </div>
+
+    <div id="exam-screen" class="screen">
+        <div class="exam-header">
+            <div id="display-name">Candidate</div>
+            <div id="progress-text">Q 1/120</div>
+            <div id="timer-text">00:00</div>
+        </div>
+
+        <div class="quiz-card">
+            <div id="vignette" class="vignette">Loading question...</div>
+            <div id="options" class="options-grid"></div>
+
+            <div id="rationale-area"></div>
+
+            <div style="margin-top: 30px; display: flex; gap: 10px;">
+                <button class="btn btn-rationale" id="rat-btn" onclick="showRationale()" disabled>Show Rationale</button>
+                <button class="btn btn-next" id="next-btn" onclick="nextQuestion()" disabled>Next Question</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <div class="result-card">
+            <h2>Results Summary</h2>
+            <div id="score-display" class="score-circle">0%</div>
+            <p id="feedback-text"></p>
+            <button class="btn btn-start" onclick="location.reload()">Restart</button>
+        </div>
+    </div>
+
+<script>
+    // DATA SOURCE (Replace/Add your 1-120 items here)
+    const rawQuestions = [
+    {
+            id: 1,
+            v: "A 24-year-old patient is admitted with 'Acute Mania'. The patient is pacing the hallway, shouting, and using profanity. What is the priority nursing intervention?",
+            a: "Place the patient in a seclusion room immediately.",
+            b: "Provide a quiet environment with low stimuli and maintain patient safety.",
+            c: "Engage the patient in a group therapy session to redirect energy.",
+            d: "Argue with the patient to show who is in control.",
+            k: "B",
+            str: "STR: Placing the patient in seclusion (A) as the first step for shouting.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Mania requires a low-stimulus environment to prevent escalation. Seclusion (A) is a last resort. (C) is 'Unsafe' as group settings are too overstimulating."
+        },
+        {
+            id: 2,
+            v: "A patient with 'Major Depressive Disorder' suddenly appears happy and energetic after weeks of deep sadness. What should the nurse suspect?",
+            a: "The patient's medication is finally working perfectly.",
+            b: "The patient has made a decision to commit suicide and has a plan.",
+            c: "The patient is ready for discharge.",
+            d: "The patient is faking their symptoms.",
+            k: "B",
+            str: "STR: Documenting that the medication is effective (A).",
+            scfhs: "SCFHS: (B) 'Safe Action' (NPSG: Suicide Risk). A sudden lift in mood in a depressed patient often indicates they have found 'relief' by finalizing a suicide plan. This requires immediate 1-on-1 observation."
+        },
+        {
+            id: 3,
+            v: "A patient is prescribed 'Lithium Carbonate' for Bipolar Disorder. The nurse notes the patient has blurred vision, severe diarrhea, and ataxia. What is the priority action?",
+            a: "Administer the next dose as scheduled.",
+            b: "Withhold the dose and obtain a serum lithium level immediately.",
+            c: "Encourage the patient to exercise to improve coordination.",
+            d: "Increase the patient's sodium intake.",
+            k: "B",
+            str: "STR: Giving the dose (A) but monitoring the patient closely.",
+            scfhs: "SCFHS: (B) 'Safe Action'. These are classic signs of Lithium Toxicity (usually >1.5 mEq/L). Continuing the drug could lead to seizures or coma."
+        },
+        {
+            id: 4,
+            v: "A patient with 'Schizophrenia' tells the nurse, 'The FBI is putting microphones in my soup.' What is the most therapeutic response?",
+            a: "That is impossible; the FBI doesn't care about your soup.",
+            b: "I don't see any microphones, but I can see that you are feeling very frightened.",
+            c: "I am with the FBI, and I promise we didn't do it.",
+            d: "Why would they put microphones in your soup?",
+            k: "B",
+            str: "STR: Challenging the delusion (A) to show it is not real.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Do not argue with or validate the delusion. Acknowledge the patient's underlying feelings (fear/anxiety) while presenting reality."
+        },
+        {
+            id: 5,
+            v: "A nurse is caring for a patient experiencing 'Alcohol Withdrawal'. Which clinical finding is a sign of 'Delirium Tremens' (DTs)?",
+            a: "Mild tremors and headache.",
+            b: "Visual hallucinations, hypertension, and tachycardia.",
+            c: "Decreased appetite.",
+            d: "Hypotension and bradycardia.",
+            k: "B",
+            str: "STR: Mild tremors (A) as the primary sign of withdrawal.",
+            scfhs: "SCFHS: (B) 'Safe Action'. DTs are a medical emergency characterized by severe sympathetic overdrive and hallucinations. It can be fatal without benzodiazepine treatment."
+        },
+        {
+            id: 6,
+            v: "A patient is taking 'Phenelzine' (an MAOI). The patient arrives at the clinic with a splitting headache and a BP of 210/120 mmHg. Which question is most relevant?",
+            a: "Have you been exercising lately?",
+            b: "Did you eat aged cheese, chocolate, or drink red wine recently?",
+            c: "How many hours of sleep did you get?",
+            d: "Are you taking your medication with water?",
+            k: "B",
+            str: "STR: Asking about exercise (A) as it raises blood pressure.",
+            scfhs: "SCFHS: (B) 'Safe Action'. MAOIs interact with tyramine-rich foods (aged cheese, wine) to cause a Hypertensive Crisis. This is a critical safety teaching point."
+        },
+        {
+            id: 7,
+            v: "A patient with 'Obsessive-Compulsive Disorder' (OCD) spends 2 hours washing their hands every morning. What is the best initial nursing intervention?",
+            a: "Lock the bathroom so the patient cannot wash their hands.",
+            b: "Allow the patient enough time for the ritual initially, then gradually limit it.",
+            c: "Force the patient to stop and go to breakfast.",
+            d: "Tell the patient their hands are already clean.",
+            k: "B",
+            str: "STR: Stopping the ritual immediately (C) to change the behavior.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Stopping a ritual abruptly in the early stages of treatment causes overwhelming anxiety. The goal is gradual reduction while developing coping skills."
+        },
+        {
+            id: 8,
+            v: "A patient is admitted after a 'Sexual Assault'. The patient is sitting quietly and appears numb and detached. Which phase of the Rape Trauma Syndrome is this?",
+            a: "The Expressive Phase.",
+            b: "The Controlled Phase.",
+            c: "The Resolution Phase.",
+            d: "The Denial Phase.",
+            k: "B",
+            str: "STR: The Expressive Phase (A) because they are showing a reaction.",
+            scfhs: "SCFHS: (B) 'Safe Action'. In the 'Controlled Phase', the survivor masks feelings with a calm, composed, or numb affect. (A) involves crying and visible agitation."
+        },
+        {
+            id: 9,
+            v: "A patient is prescribed 'Haloperidol'. The nurse notes the patient has a high fever, muscle rigidity, and unstable blood pressure. What condition should the nurse suspect?",
+            a: "Extrapyramidal Symptoms (EPS).",
+            b: "Neuroleptic Malignant Syndrome (NMS).",
+            c: "Serotonin Syndrome.",
+            d: "Tardive Dyskinesia.",
+            k: "B",
+            str: "STR: Extrapyramidal Symptoms (A) as it is the most common side effect.",
+            scfhs: "SCFHS: (B) 'Safe Action'. NMS is a life-threatening reaction to antipsychotics. Fever and 'lead-pipe' rigidity are the hallmarks. (C) is for SSRIs."
+        },
+        {
+            id: 10,
+            v: "A patient with 'Anorexia Nervosa' has a BMI of 14 and refuse to eat. What is the most important nursing goal in the acute phase?",
+            a: "Improving the patient's self-esteem.",
+            b: "Restoring nutritional status and electrolyte balance.",
+            c: "Teaching the patient about healthy cooking.",
+            d: "Identifying the family's role in the disorder.",
+            k: "B",
+            str: "STR: Focusing on self-esteem (A) as it is a psychiatric disorder.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Physical safety (stabilizing weight and electrolytes) always takes priority over psychological therapy in a severely malnourished patient."
+        },
+        {
+            id: 11,
+            v: "A patient tells the nurse, 'I don't think I can go on anymore. Everything is hopeless.' What is the nurse's priority response?",
+            a: "Don't say that; you have so much to live for.",
+            b: "Are you thinking of killing yourself?",
+            c: "I'll get you some tea and you'll feel better.",
+            d: "Everyone feels like that sometimes.",
+            k: "B",
+            str: "STR: Providing comfort (C) to build rapport first.",
+            scfhs: "SCFHS: (B) 'Safe Action' (NPSG). Direct, blunt questioning about suicide is mandatory when a patient expresses hopelessness. (A) and (D) are non-therapeutic/dismissive."
+        },
+        {
+            id: 12,
+            v: "A patient is experiencing a 'Panic Attack'. The patient is hyperventilating and screaming, 'I am dying!' What is the nurse's best action?",
+            a: "Leave the patient alone to calm down.",
+            b: "Stay with the patient and use short, simple sentences.",
+            c: "Explain the physiology of a panic attack in detail.",
+            d: "Call a 'Code Blue' immediately.",
+            k: "B",
+            str: "STR: Explaining the physiology (C) so the patient understands they aren't dying.",
+            scfhs: "SCFHS: (B) 'Safe Action'. During panic, the patient cannot process complex info. Staying present provides safety, and simple instructions help ground them."
+        },
+        {
+            id: 13,
+            v: "A patient with 'Borderline Personality Disorder' tells the day nurse, 'You are the only one who cares. The night nurse is evil.' What is this defense mechanism called?",
+            a: "Projection.",
+            b: "Splitting.",
+            c: "Reaction Formation.",
+            d: "Sublimation.",
+            k: "B",
+            str: "STR: Projection (A) because they are projecting feelings.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Splitting (viewing people as all good or all bad) is a hallmark of Borderline Personality Disorder to manage internal conflict."
+        },
+        {
+            id: 14,
+            v: "A patient is prescribed 'Clozapine'. Which laboratory result must the nurse check weekly?",
+            a: "Serum Lithium level.",
+            b: "White Blood Cell (WBC) count.",
+            c: "Liver Function Tests (LFT).",
+            d: "Serum Creatinine.",
+            k: "B",
+            str: "STR: LFTs (C) because most psych drugs affect the liver.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Clozapine carries a high risk of agranulocytosis (dangerously low WBC). Weekly monitoring is a legal/safety requirement."
+        },
+        {
+            id: 15,
+            v: "A patient is scheduled for 'Electroconvulsive Therapy' (ECT). What is the nurse's priority responsibility after the procedure?",
+            a: "Feeding the patient a full meal immediately.",
+            b: "Monitoring the airway and vital signs until the patient is fully awake.",
+            c: "Asking the patient to solve complex math problems.",
+            d: "Restricting the patient to bed rest for 24 hours.",
+            k: "B",
+            str: "STR: Testing their memory (C) to see if the ECT worked.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Post-ECT care is similar to post-op care. Maintaining a patent airway is the priority during the recovery from anesthesia."
+        },
+        {
+            id: 16,
+            v: "A child is diagnosed with 'Attention-Deficit/Hyperactivity Disorder' (ADHD). Which environment is best for this child to complete homework?",
+            a: "The living room with the TV on for background noise.",
+            b: "A quiet, cluttered-free room with minimal distractions.",
+            c: "In a group setting with other children.",
+            d: "While listening to loud music.",
+            k: "B",
+            str: "STR: Background noise (A) to help them focus.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Children with ADHD are easily distracted by sensory input. A simplified, quiet environment helps them maintain focus on tasks."
+        },
+        {
+            id: 17,
+            v: "A patient with 'Post-Traumatic Stress Disorder' (PTSD) is startled by a loud noise and starts looking around frantically. What is the nurse's priority action?",
+            a: "Touch the patient's shoulder to comfort them.",
+            b: "Identify yourself and explain that they are in a safe place.",
+            c: "Sneak up behind them to see if they are okay.",
+            d: "Laugh at the noise to show it wasn't dangerous.",
+            k: "B",
+            str: "STR: Touching the patient (A) to provide physical comfort.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (A) is 'Unsafe' (may trigger aggression). Grounding techniques—identifying oneself and reinforcing current safety—are the priority."
+        },
+        {
+            id: 18,
+            v: "A nurse is caring for an elderly patient with 'Dementia' who gets agitated and confused in the late afternoon. What is this phenomenon called?",
+            a: "Alzheimer's crisis.",
+            b: "Sundowning.",
+            c: "Amnesia.",
+            d: "Psychosis.",
+            k: "B",
+            str: "STR: Alzheimer's crisis (A) because it is a peak in symptoms.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Sundowning is a common feature of dementia where confusion and agitation increase as daylight fades."
+        },
+        {
+            id: 19,
+            v: "A patient is taking 'Fluoxetine' (an SSRI). The patient presents with confusion, shivering, and muscle jerks (myoclonus). What should the nurse suspect?",
+            a: "Anticholinergic toxicity.",
+            b: "Serotonin Syndrome.",
+            c: "Dopamine deficiency.",
+            d: "Bacterial meningitis.",
+            k: "B",
+            str: "STR: Anticholinergic toxicity (A) due to common drug side effects.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Serotonin Syndrome is caused by excessive serotonin. It is a medical emergency often seen when starting or increasing SSRI doses."
+        },
+        {
+            id: 20,
+            v: "A patient with 'Antisocial Personality Disorder' is demanding special privileges. What is the most appropriate nursing approach?",
+            a: "Give in to the demands to avoid a confrontation.",
+            b: "Set clear, firm limits and maintain consistency among all staff.",
+            c: "Let the patient decide the unit rules for the day.",
+            d: "Ignore the patient entirely.",
+            k: "B",
+            str: "STR: Giving in (A) to keep the unit quiet.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Patients with Antisocial PD often manipulate others. Firm boundaries and staff consistency are essential to prevent 'splitting' and maintain order."
+        },
+        {
+            id: 51,
+            v: "A patient with 'Schizophrenia' is standing in the middle of the dayroom in a fixed position, refusing to move or speak. What is the nurse's priority?",
+            a: "Force the patient to sit down in a chair.",
+            b: "Assess the patient's skin integrity and circulatory status.",
+            c: "Leave the patient alone until they decide to move.",
+            d: "Administer an extra dose of an antidepressant.",
+            k: "B",
+            str: "STR: Leaving them alone (C) to respect their personal space.",
+            scfhs: "SCFHS: (B) 'Safe Action'. This is catatonic stupor. Patients in fixed positions for long periods are at high risk for pressure ulcers, deep vein thrombosis (DVT), and malnutrition."
+        },
+        {
+            id: 52,
+            v: "A patient is admitted for 'Alcohol Detoxification'. On the second day, the patient becomes agitated and reports seeing 'bugs' on the wall. What is the priority nursing action?",
+            a: "Tell the patient there are no bugs on the wall.",
+            b: "Administer a PRN dose of a Benzodiazepine as prescribed.",
+            c: "Turn on all the lights to show the room is clean.",
+            d: "Ask the patient to describe the bugs in detail.",
+            k: "B",
+            str: "STR: Challenging the hallucination (A) to bring them back to reality.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Visual hallucinations are a sign of severe withdrawal. Benzodiazepines (like Diazepam or Lorazepam) are the gold standard to prevent seizures and DTs."
+        },
+        {
+            id: 53,
+            v: "A patient with 'Borderline Personality Disorder' has several superficial cuts on their forearm. What is the most therapeutic nursing response?",
+            a: "Why did you do this to yourself again?",
+            b: "Clean and dress the wounds in a matter-of-fact manner.",
+            c: "Give the patient extra attention and sympathy for their pain.",
+            d: "Tell the patient they will be punished for breaking the rules.",
+            k: "B",
+            str: "STR: Giving lots of attention (C) to show the patient we care.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Self-mutilation in Borderline PD is often attention-seeking. A 'matter-of-fact' approach prevents reinforcing the behavior with secondary gain."
+        },
+        {
+            id: 54,
+            v: "A patient is taking 'Lithium' and complains of persistent thirst and frequent urination. What should the nurse suspect?",
+            a: "This is a normal, expected side effect.",
+            b: "The patient is developing Diabetes Insipidus.",
+            c: "The patient is faking symptoms to get more water.",
+            d: "The Lithium dose is too low.",
+            k: "B",
+            str: "STR: Documenting it as a normal side effect (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Lithium-induced nephrogenic diabetes insipidus is a known complication. While polyuria is common, persistent changes require monitoring of renal function."
+        },
+        {
+            id: 55,
+            v: "A patient with 'Bulimia Nervosa' is found in the bathroom immediately after lunch. What is the nurse's priority intervention?",
+            a: "Lock the bathroom doors during the day.",
+            b: "Accompany the patient to the bathroom and monitor for 1-2 hours after meals.",
+            c: "Ignore the behavior to avoid a conflict.",
+            d: "Tell the patient they cannot eat dinner if they purge lunch.",
+            k: "B",
+            str: "STR: Locking the bathroom (A) to prevent the behavior.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Monitoring after meals is essential to prevent purging behaviors while the patient learns healthier coping mechanisms for their anxiety."
+        },
+        {
+            id: 56,
+            v: "A patient is experiencing a 'Dystonic Reaction' (torticollis) after a dose of Haloperidol. Which medication should the nurse prepare?",
+            a: "Lorazepam.",
+            b: "Benztropine (Cogentin) or Diphenhydramine.",
+            c: "Lithium.",
+            d: "Risperidone.",
+            k: "B",
+            str: "STR: Lorazepam (A) to relax the muscles.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Acute dystonia is an EPS treated with anticholinergics or antihistamines. It is a frightening but reversible side effect."
+        },
+        {
+            id: 57,
+            v: "A patient with 'Alzheimer’s Disease' is found wandering in the hallway at night, looking for their mother. What is the best response?",
+            a: "Your mother died 20 years ago; go back to bed.",
+            b: "You are in the hospital; let me walk with you to your room.",
+            c: "I'll call the police to find your mother.",
+            d: "Why are you looking for her now?",
+            k: "B",
+            str: "STR: Correcting them by saying their mother is dead (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Validation and redirection are key. Bluntly stating a deceased loved one is gone (A) causes unnecessary agitation and grief."
+        },
+        {
+            id: 58,
+            v: "A patient is admitted for 'Opioid Overdose'. Which medication is the priority to reverse respiratory depression?",
+            a: "Methadone.",
+            b: "Naloxone (Narcan).",
+            c: "Buprenorphine.",
+            d: "Diazepam.",
+            k: "B",
+            str: "STR: Methadone (A) because it is used for opioid treatment.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Naloxone is a fast-acting opioid antagonist. (A) and (C) are for long-term maintenance/withdrawal, not acute overdose."
+        },
+        {
+            id: 59,
+            v: "A patient with 'Schizophrenia' starts making up new words that have no meaning to others. What is this called?",
+            a: "Echolalia.",
+            b: "Neologisms.",
+            c: "Word salad.",
+            d: "Clang association.",
+            k: "B",
+            str: "STR: Word salad (C) because the speech is confusing.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Neologisms are invented words. (A) is repeating others; (C) is a mixture of real words that make no sense; (D) is rhyming."
+        },
+        {
+            id: 60,
+            v: "A patient tells the nurse, 'I am the King of Saudi Arabia and everyone must bow to me.' What is the nurse's best response?",
+            a: "No, you are a patient in a psychiatric ward.",
+            b: "I am your nurse, and I will be working with you today.",
+            c: "Your Majesty, what would you like for lunch?",
+            d: "Why do you think you are the King?",
+            k: "B",
+            str: "STR: Bowing to the patient (C) to keep them happy.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Presenting reality without being argumentative. Validating the delusion (C) reinforces the false belief."
+        },
+        {
+            id: 61,
+            v: "A patient with 'Conversion Disorder' suddenly becomes blind after witnessing a car accident. Diagnostic tests show no physical cause. What is the nurse's best approach?",
+            a: "Tell the patient they are faking it.",
+            b: "Focus on the patient's feelings and help them with ADLs as needed.",
+            c: "Ignore the patient until they 'see' again.",
+            d: "Perform frequent eye exams to check for changes.",
+            k: "B",
+            str: "STR: Forcing the patient to walk alone (C) to prove they can see.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Conversion disorder is a psychological response to stress. The blindness is 'real' to the patient. Help with ADLs but don't over-focus on the symptom."
+        },
+        {
+            id: 62,
+            v: "A patient is starting 'Amitriptyline' (a TCA). Which side effect should the nurse warn the patient about for safety?",
+            a: "Diarrhea.",
+            b: "Orthostatic hypotension and dizziness.",
+            c: "Weight loss.",
+            d: "Insomnia.",
+            k: "B",
+            str: "STR: Weight loss (C) due to loss of appetite.",
+            scfhs: "SCFHS: (B) 'Safe Action'. TCAs cause orthostatic hypotension, which is a significant fall risk (NPSG: Fall Prevention)."
+        },
+        {
+            id: 63,
+            v: "A patient with 'Histrionic Personality Disorder' is dressed provocatively and demanding the doctor's private phone number. What is the nurse's priority?",
+            a: "Give the patient the number to stop the shouting.",
+            b: "Maintain professional boundaries and redirect the patient to appropriate activities.",
+            c: "Tell the patient they are being inappropriate in front of everyone.",
+            d: "Call the police.",
+            k: "B",
+            str: "STR: Giving the number (A) to prevent a scene.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Patients with Histrionic PD are attention-seeking and often seductive. Firm, professional boundaries are the foundation of care."
+        },
+        {
+            id: 64,
+            v: "A patient is admitted for 'Heroin Withdrawal'. Which symptom should the nurse expect to see?",
+            a: "Drowsiness and bradycardia.",
+            b: "Nausea, vomiting, muscle aches, and dilated pupils.",
+            c: "Increased appetite and sleep.",
+            d: "Pinpoint pupils and euphoria.",
+            k: "B",
+            str: "STR: Pinpoint pupils (D) which are common in drug users.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (D) is a sign of *intoxication*. Withdrawal looks like a 'bad flu' with dilated pupils and hyperreflexia."
+        },
+        {
+            id: 65,
+            v: "A nurse is performing a 'Suicide Risk Assessment'. Which factor indicates the highest risk?",
+            a: "The patient says they are 'sad'.",
+            b: "The patient has a specific plan and access to a lethal weapon.",
+            c: "The patient has a large family.",
+            d: "The patient is religious.",
+            k: "B",
+            str: "STR: The patient feeling sad (A) because it is the start of suicide.",
+            scfhs: "SCFHS: (B) 'Safe Action' (NPSG). Lethality of the plan and the means to carry it out are the most critical predictors of an immediate suicide attempt."
+        },
+        {
+            id: 66,
+            v: "A patient with 'Schizoid Personality Disorder' prefers to stay in their room alone and avoids group activities. What is the nurse's best intervention?",
+            a: "Force the patient to attend every group session.",
+            b: "Respect the patient's need for isolation but check on them briefly.",
+            c: "Tell the patient they will be discharged if they don't socialize.",
+            d: "Assign a talkative roommate to the patient.",
+            k: "B",
+            str: "STR: Forcing group therapy (A) to fix their social skills.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Schizoid PD is characterized by a preference for solitary activities. Forcing social interaction (A) causes extreme distress."
+        },
+        {
+            id: 67,
+            v: "A patient is taking 'Sertraline' and 'St. John’s Wort'. The patient develops a high fever, sweating, and tremors. What should the nurse suspect?",
+            a: "Normal reaction to antidepressants.",
+            b: "Serotonin Syndrome.",
+            c: "Neuroleptic Malignant Syndrome.",
+            d: "The flu.",
+            k: "B",
+            str: "STR: The flu (D) because of the fever and sweating.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Combining an SSRI with herbal supplements like St. John’s Wort significantly increases the risk of Serotonin Syndrome."
+        },
+        {
+            id: 68,
+            v: "A patient with 'Delirium' is disoriented to time and place. What is the nurse's priority?",
+            a: "Keep the room completely dark.",
+            b: "Provide a consistent environment with a clock and calendar (reorientation).",
+            c: "Leave the TV on a news channel all day.",
+            d: "Restrain the patient to the bed.",
+            k: "B",
+            str: "STR: Keeping the room dark (A) to help them sleep.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Delirium requires environmental cues to help the patient stay grounded in reality. Darkness (A) can increase confusion and 'sundowning'."
+        },
+        {
+            id: 69,
+            v: "A patient is prescribed 'Disulfiram' (Antabuse) for alcohol sobriety. What is the most important teaching point?",
+            a: "You can drink one glass of wine per day.",
+            b: "Avoid all alcohol-containing products, including mouthwash and cough syrup.",
+            c: "Take the medication only when you feel like drinking.",
+            d: "The medication will make you feel happy.",
+            k: "B",
+            str: "STR: You can have a little alcohol (A) as long as it's not a lot.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Consuming even tiny amounts of alcohol with Disulfiram causes a severe, potentially fatal physical reaction (nausea, tachycardia, hypotension)."
+        },
+        {
+            id: 70,
+            v: "A patient with 'Paranoid Schizophrenia' refuses to eat the hospital food because 'it's poisoned.' What is the nurse's best action?",
+            a: "Taste the food in front of the patient.",
+            b: "Offer pre-packaged, unopened food items.",
+            c: "Tell the patient they will be tube-fed if they don't eat.",
+            d: "Agree that the food is poisoned.",
+            k: "B",
+            str: "STR: Tasting the food (A) to prove it is safe.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Tasting the food (A) can be seen as part of the delusion or manipulation. Pre-packaged food allows the patient to feel in control and safe."
+        },
+        {
+            id: 71,
+            v: "A patient tells the nurse, 'I don't need to be here. My wife is the crazy one.' What is this defense mechanism?",
+            a: "Rationalization.",
+            b: "Projection.",
+            c: "Regression.",
+            d: "Identification.",
+            k: "B",
+            str: "STR: Rationalization (A) because he is giving a reason.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Projection involves attributing one's own unacceptable feelings or traits to someone else."
+        },
+        {
+            id: 72,
+            v: "A child with 'Autism Spectrum Disorder' is rocking back and forth and flapping their hands. How should the nurse interpret this?",
+            a: "The child is being naughty.",
+            b: "This is a self-soothing behavior (stimming) used to manage sensory input.",
+            c: "The child is having a seizure.",
+            d: "The child is hungry.",
+            k: "B",
+            str: "STR: The child is being naughty (A) and needs a time-out.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Repetitive behaviors (stimming) are common in Autism to cope with overstimulation or understimulation."
+        },
+        {
+            id: 73,
+            v: "A patient is experiencing 'Extrapyramidal Symptoms' (EPS) from an antipsychotic. Which symptom is characterized by a continuous restless urge to move?",
+            a: "Tardive Dyskinesia.",
+            b: "Akathisia.",
+            c: "Oculogyric crisis.",
+            d: "Pseudoparkinsonism.",
+            k: "B",
+            str: "STR: Tardive Dyskinesia (A) as the main movement disorder.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Akathisia is the 'internal restlessness'. Patients often pace or rock because they cannot sit still."
+        },
+        {
+            id: 74,
+            v: "A nurse is caring for a patient who was just told their spouse died. The patient says, 'That can't be true. He's at work right now.' What is the nurse's best response?",
+            a: "No, he's dead. I'll show you the body.",
+            b: "I am so sorry. This must be a terrible shock for you.",
+            c: "You're right, let's wait for him to come home.",
+            d: "Why are you lying?",
+            k: "B",
+            str: "STR: Agreeing with the patient (C) to avoid hurting them more.",
+            scfhs: "SCFHS: (B) 'Safe Action'. This is the denial phase of grief. The nurse should provide empathetic support and presence without reinforcing the denial."
+        },
+        {
+            id: 75,
+            v: "A patient with 'Major Depressive Disorder' stops eating and stays in bed all day. What is the priority nursing diagnosis?",
+            a: "Impaired social interaction.",
+            b: "Self-care deficit: Nutrition and Hygiene.",
+            c: "Disturbed sleep pattern.",
+            d: "Low self-esteem.",
+            k: "B",
+            str: "STR: Low self-esteem (D) because they feel bad about themselves.",
+            scfhs: "SCFHS: (B) 'Safe Action'. While psychological issues are present, physical survival (nutrition/hygiene) is the immediate priority in a clinical setting."
+        },
+        {
+            id: 76,
+            v: "A patient with 'Schizophrenia' is experiencing 'Command Hallucinations' telling him to 'hurt the nurse.' What is the priority nursing action?",
+            a: "Ask the patient if he plans to follow the commands.",
+            b: "Provide for the safety of the staff and other patients immediately.",
+            c: "Tell the patient that the voices are not real.",
+            d: "Administer an oral antidepressant.",
+            k: "B",
+            str: "STR: Telling the patient the voices aren't real (C) to stop the thoughts.",
+            scfhs: "SCFHS: (B) 'Safe Action' (NPSG: Patient Safety). Command hallucinations are the most dangerous type. Ensuring a safe environment and potentially initiating 1-on-1 observation is the immediate priority."
+        },
+        {
+            id: 77,
+            v: "A patient is admitted with 'Wernicke-Korsakoff Syndrome' due to chronic alcohol abuse. Which vitamin deficiency is responsible for this condition?",
+            a: "Vitamin C.",
+            b: "Vitamin B1 (Thiamine).",
+            c: "Vitamin D.",
+            d: "Vitamin B12.",
+            k: "B",
+            str: "STR: Vitamin B12 (D) as it is common in nerve health.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Chronic alcohol use prevents Thiamine absorption, leading to encephalopathy and permanent memory loss (confabulation)."
+        },
+        {
+            id: 78,
+            v: "A nurse is leading a 'Group Therapy' session. A patient becomes monopolizing and won't let others speak. What is the best intervention?",
+            a: "Ask the patient to leave the group immediately.",
+            b: "Acknowledge the patient's input but redirect the discussion to other members.",
+            c: "Tell the patient they are being rude.",
+            d: "Stop the group session and go to lunch.",
+            k: "B",
+            str: "STR: Removing the patient (A) to protect the group's time.",
+            scfhs: "SCFHS: (B) 'Safe Action'. The nurse must maintain the group's therapeutic balance by gently redirecting focus without shaming the individual member."
+        },
+        {
+            id: 79,
+            v: "A patient is diagnosed with 'Somatic Symptom Disorder'. The patient constantly complains of various physical pains, but all medical tests are normal. What is the nurse's goal?",
+            a: "Prove to the patient that the pain is imaginary.",
+            b: "Help the patient identify the link between stress and physical symptoms.",
+            c: "Give the patient more pain medication.",
+            d: "Ignore the patient's complaints completely.",
+            k: "B",
+            str: "STR: Giving more pain meds (C) until the pain stops.",
+            scfhs: "SCFHS: (B) 'Safe Action'. The goal is to shift focus from physical symptoms to the expression of underlying feelings and stressors."
+        },
+        {
+            id: 80,
+            v: "A patient with 'Bipolar I Disorder' is in the 'Manic Phase'. Which snack is most appropriate for this patient?",
+            a: "A bowl of hot soup and crackers.",
+            b: "High-calorie 'finger foods' like a chicken wrap or a banana.",
+            c: "A large salad with a fork.",
+            d: "Spaghetti and meatballs.",
+            k: "B",
+            str: "STR: A large salad (C) for healthy nutrition.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Manic patients are too hyperactive to sit for a meal. Finger foods allow them to eat while moving to maintain nutritional intake."
+        },
+        {
+            id: 81,
+            v: "A patient is prescribed 'Venlafaxine' (an SNRI). What is a common side effect the nurse should monitor?",
+            a: "Increased blood pressure.",
+            b: "Extremely low heart rate.",
+            c: "Excessive weight loss.",
+            d: "High fever.",
+            k: "A",
+            str: "STR: Low heart rate (B) as the drug calms the patient.",
+            scfhs: "SCFHS: (A) 'Safe Action'. SNRIs can cause dose-dependent hypertension. Monitoring BP is essential when starting or increasing the dose."
+        },
+        {
+            id: 82,
+            v: "A patient with 'Delusional Disorder' believes their spouse is cheating on them despite no evidence. What type of delusion is this?",
+            a: "Grandiose.",
+            b: "Jealous.",
+            c: "Somatic.",
+            d: "Persecutory.",
+            k: "B",
+            str: "STR: Persecutory (D) because they feel attacked by the spouse.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Jealous delusions center on the false belief that a partner is unfaithful."
+        },
+        {
+            id: 83,
+            v: "A nurse is caring for a patient who is 'Involuntarily Committed' to the psychiatric unit. Which right does the patient still retain?",
+            a: "The right to leave the hospital whenever they want.",
+            b: "The right to refuse treatment and medications (unless an emergency).",
+            c: "The right to carry a weapon for self-defense.",
+            d: "The right to decide when they are discharged.",
+            k: "B",
+            str: "STR: The right to leave (A) since they have human rights.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Involuntary status means they cannot leave, but they still have the right to informed consent and the right to refuse meds unless they are a danger to self/others."
+        },
+        {
+            id: 84,
+            v: "A patient with 'Schizophrenia' exhibits 'Waxy Flexibility'. How should the nurse describe this finding?",
+            a: "The patient is constantly moving and cannot stop.",
+            b: "The patient's limbs stay in the position they are placed by the nurse.",
+            c: "The patient is repeating everything the nurse says.",
+            d: "The patient is performing purposeless, repetitive movements.",
+            k: "B",
+            str: "STR: Repeating everything (C) like a parrot.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Waxy flexibility is a catatonic symptom where the patient holds an unusual posture for a long time after being positioned."
+        },
+        {
+            id: 85,
+            v: "A patient is admitted with 'Body Dysmorphic Disorder'. What is the patient's primary concern?",
+            a: "Fear of gaining weight.",
+            b: "Preoccupation with an imagined or slight defect in physical appearance.",
+            c: "Believing they have a serious undiagnosed medical illness.",
+            d: "Fear of being in open spaces.",
+            k: "B",
+            str: "STR: Fear of gaining weight (A) which is why they hate their body.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (A) is Anorexia. Body Dysmorphic Disorder focuses on specific features (e.g., nose, skin, hair) rather than overall weight."
+        },
+        {
+            id: 86,
+            v: "A patient is taking 'Valproic Acid' for mood stabilization. Which laboratory test is the priority?",
+            a: "White blood cell count.",
+            b: "Liver Function Tests (LFTs) and Platelet count.",
+            c: "Serum Potassium.",
+            d: "Urinalysis.",
+            k: "B",
+            str: "STR: WBC count (A) to check for infection.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Valproic acid can cause hepatotoxicity and thrombocytopenia (low platelets)."
+        },
+        {
+            id: 87,
+            v: "A patient with 'Agoraphobia' is afraid to leave their home. What is the most effective behavioral therapy for this?",
+            a: "Flooding (immediate maximum exposure).",
+            b: "Systemic Desensitization (gradual exposure).",
+            c: "Aversion therapy.",
+            d: "Punishment.",
+            k: "B",
+            str: "STR: Flooding (A) to get over the fear quickly.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Gradual exposure combined with relaxation techniques helps the patient manage anxiety without being overwhelmed."
+        },
+        {
+            id: 88,
+            v: "A patient in the dayroom becomes increasingly loud and begins throwing chairs. What is the nurse's first priority?",
+            a: "Call the doctor for a sedative.",
+            b: "Ensure the safety of other patients by moving them away from the area.",
+            c: "Tackle the patient to the ground.",
+            d: "Shout at the patient to stop.",
+            k: "B",
+            str: "STR: Tackling the patient (C) before someone gets hurt.",
+            scfhs: "SCFHS: (B) 'Safe Action'. The first step in a crisis is protecting others. Restraints/seclusion are only initiated after other patients are safe and sufficient staff are present."
+        },
+        {
+            id: 89,
+            v: "A patient with 'Gender Dysphoria' wishes to be referred to by a different name and pronoun. What is the most therapeutic nursing action?",
+            a: "Explain that you must use the name on their legal ID.",
+            b: "Respect the patient's request and use their preferred name and pronoun.",
+            c: "Tell the patient they are being confusing.",
+            d: "Ignore the patient's request.",
+            k: "B",
+            str: "STR: Using the legal ID name (A) for medical accuracy.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Respecting the patient's identity is fundamental to the therapeutic relationship and reduces distress."
+        },
+        {
+            id: 90,
+            v: "A patient is experiencing 'Extrapyramidal Symptoms' (EPS). Which term describes 'pill-rolling' tremors and a 'mask-like' face?",
+            a: "Akathisia.",
+            b: "Pseudoparkinsonism.",
+            c: "Tardive Dyskinesia.",
+            d: "Dystonia.",
+            k: "B",
+            str: "STR: Akathisia (A) because they are shaking.",
+            scfhs: "SCFHS: (B) 'Safe Action'. These symptoms mimic Parkinson’s disease and are a common side effect of first-generation antipsychotics."
+        },
+        {
+            id: 91,
+            v: "A patient is admitted for 'Bulimia Nervosa'. What is a common physical complication of chronic purging?",
+            a: "High blood pressure.",
+            b: "Dental caries and electrolyte imbalances (low potassium).",
+            c: "Increased bone density.",
+            d: "Abnormally thick hair.",
+            k: "B",
+            str: "STR: High blood pressure (A) from the stress of vomiting.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Gastric acid destroys tooth enamel, and vomiting leads to hypokalemia, which can cause fatal cardiac arrhythmias."
+        },
+        {
+            id: 92,
+            v: "A patient with 'Delirium' is pulling at their IV line. What is the best initial nursing intervention?",
+            a: "Apply wrist restraints.",
+            b: "Provide a 'distraction' like a folding towel or a busy apron.",
+            c: "Increase the dose of their sedative.",
+            d: "Tell the patient to stop or they will be punished.",
+            k: "B",
+            str: "STR: Applying restraints (A) to prevent injury.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Restraints are a last resort. Least restrictive measures, like distraction or 1-on-1 observation, should be tried first."
+        },
+        {
+            id: 93,
+            v: "A patient is taking 'Lithium'. The nurse should teach the patient to maintain a consistent intake of which substance?",
+            a: "Sugar.",
+            b: "Sodium (Salt) and Water.",
+            c: "Potassium.",
+            d: "Protein.",
+            k: "B",
+            str: "STR: Potassium (C) since Lithium is a metal.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Lithium is a salt. If sodium levels drop (due to sweating/diarrhea), the kidneys will reabsorb Lithium instead, leading to toxicity."
+        },
+        {
+            id: 94,
+            v: "A patient with 'Dissociative Identity Disorder' (DID) switches to a different 'alter' during the interview. What is the nurse's best action?",
+            a: "Tell the patient to 'stop acting' and be themselves.",
+            b: "Acknowledge the new personality and continue the assessment as appropriate.",
+            c: "Laugh and say it's a good trick.",
+            d: "Administer an emergency antipsychotic.",
+            k: "B",
+            str: "STR: Telling them to stop acting (A) to discourage the behavior.",
+            scfhs: "SCFHS: (B) 'Safe Action'. The nurse should remain calm and accepting of the personalities as they are a defense mechanism for trauma."
+        },
+        {
+            id: 95,
+            v: "A patient is starting 'Buspirone' for Anxiety. What should the nurse include in the teaching?",
+            a: "It works immediately like Diazepam.",
+            b: "It takes 2-4 weeks to reach full therapeutic effect.",
+            c: "You will feel very sleepy after taking it.",
+            d: "It is highly addictive and hard to stop.",
+            k: "B",
+            str: "STR: It works immediately (A) for panic attacks.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Buspirone is non-benzodiazepine, non-sedative, and non-addictive, but it does not work for acute anxiety/panic due to its slow onset."
+        },
+        {
+            id: 96,
+            v: "A patient with 'Major Depression' says, 'I feel a little better today.' The nurse notes the patient is giving away their favorite watch. What is the priority?",
+            a: "Thank the patient for the gift.",
+            b: "Initiate suicide precautions immediately.",
+            c: "Document the improved mood.",
+            d: "Tell the patient they should keep their watch.",
+            k: "B",
+            str: "STR: Documenting the improvement (C) as a positive sign.",
+            scfhs: "SCFHS: (B) 'Safe Action' (NPSG). Giving away prized possessions is a classic warning sign of impending suicide."
+        },
+        {
+            id: 97,
+            v: "A patient with 'Narcissistic Personality Disorder' says, 'I am too important to follow the unit rules.' What is the nurse's best response?",
+            a: "You're right, you are special.",
+            b: "The rules apply to everyone to ensure safety on the unit.",
+            c: "Why do you think you are better than others?",
+            d: "I'll tell the doctor you are being difficult.",
+            k: "B",
+            str: "STR: Challenging their ego (C) to humble them.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Setting firm, consistent limits without being punitive is the standard for personality disorders."
+        },
+        {
+            id: 98,
+            v: "A nurse is caring for a patient experiencing 'Acute Stress Disorder'. How does this differ from 'PTSD'?",
+            a: "Symptoms last longer than a year.",
+            b: "Symptoms occur and resolve within 1 month of the trauma.",
+            c: "It only happens to children.",
+            d: "There are no flashbacks.",
+            k: "B",
+            str: "STR: It lasts longer than a year (A).",
+            scfhs: "SCFHS: (B) 'Safe Action'. Acute Stress Disorder is the short-term version of PTSD. If symptoms persist beyond a month, the diagnosis changes to PTSD."
+        },
+        {
+            id: 99,
+            v: "A patient is taking 'Risperidone'. Which metabolic side effect should the nurse monitor?",
+            a: "Weight gain, dyslipidemia, and hyperglycemia.",
+            b: "Sudden weight loss and low blood sugar.",
+            c: "Increased muscle mass.",
+            d: "Lowered cholesterol.",
+            k: "A",
+            str: "STR: Weight loss (B) because of the energy from the drug.",
+            scfhs: "SCFHS: (A) 'Safe Action'. Second-generation antipsychotics carry a high risk for metabolic syndrome, requiring regular monitoring of weight and lab work."
+        },
+        {
+            id: 100,
+            v: "A patient says, 'I can't take this medication because it's the color of the devil.' What is this called?",
+            a: "A hallucination.",
+            b: "A delusion.",
+            c: "An obsession.",
+            d: "A phobia.",
+            k: "B",
+            str: "STR: A phobia (D) because they are afraid of the color.",
+            scfhs: "SCFHS: (B) 'Safe Action'. This is a false fixed belief that cannot be changed by logic."
+        },
+      {
+            id: 101,
+            v: "A patient with 'Paranoid Schizophrenia' refuses to take his oral medication because he believes the nurse is a 'government spy' trying to poison him. What is the most appropriate nursing action?",
+            a: "Force the patient to swallow the medication for his own safety.",
+            b: "Build trust and offer the medication in its original, sealed blister pack.",
+            c: "Crush the medication and mix it into the patient's food without his knowledge.",
+            d: "Inform the patient he will not be discharged until he complies with the treatment.",
+            k: "B",
+            str: "STR: Mixing the medication into food (C) to ensure the patient receives therapy.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Honesty is critical for paranoid patients. Deceptive practices like (C) destroy the therapeutic relationship and violate ethical standards of informed consent.",
+        },
+        {
+            id: 102,
+            v: "A nurse promises to return in 10 minutes to talk with a patient and follows through by returning exactly on time. Which ethical principle is being applied?",
+            a: "Autonomy.",
+            b: "Fidelity.",
+            c: "Beneficence.",
+            d: "Justice.",
+            k: "B",
+            str: "STR: Autonomy (A) because it respects the nurse's own professional decision-making.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Fidelity refers to being faithful to commitments and keeping promises made to patients, which is essential for building trust.",
+        },
+        {
+            id: 103,
+            v: "A patient with 'Major Depressive Disorder' states, 'I am useless now; my family is better off without me.' What is the most therapeutic response?",
+            a: "That is not true; your family loves you very much.",
+            b: "You feel like you are a burden to them at this time?",
+            c: "Don't think negatively; try to smile and think of your children.",
+            d: "I will tell the doctor to increase your antidepressant dosage.",
+            k: "B",
+            str: "STR: Providing positive reassurance (A) to cheer the patient up.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Reflecting the patient's feelings allows for deeper exploration of their emotions without being dismissive or argumentative (A/C).",
+        },
+        {
+            id: 104,
+            v: "A patient diagnosed with 'Narcissistic Personality Disorder' constantly belittles the nurse's clinical skills. What is the best nursing approach?",
+            a: "Defend your skills so the patient knows you are competent.",
+            b: "Remain calm, neutral, and focused on the goals of the care plan.",
+            c: "Request to be reassigned to a different patient.",
+            d: "Report the patient to the security department.",
+            k: "B",
+            str: "STR: Defending your professional status (A) to maintain authority.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Narcissistic patients use 'devaluation' to maintain their own self-esteem. Nurses must avoid power struggles and maintain professional boundaries.",
+        },
+        {
+            id: 105,
+            v: "A patient with 'Bipolar Disorder' in the manic phase is so physically active that he is at risk for extreme exhaustion. What is the priority intervention?",
+            a: "Provide high-focus activities such as playing chess.",
+            b: "Provide a low-stimulus environment and structured rest periods.",
+            c: "Allow the patient to stay active until he eventually tires himself out.",
+            d: "Restrain the patient to the bed to ensure he sleeps.",
+            k: "B",
+            str: "STR: Giving the patient a complex task (A) to channel his energy.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Manic patients cannot focus on complex tasks (A). A quiet environment (B) is necessary to prevent physical collapse and cardiac strain.",
+        },
+        {
+            id: 106,
+            v: "A woman is brought to the Emergency Department after experiencing Domestic Violence. What is the nurse's first step?",
+            a: "Ask the patient why she hasn't left her husband sooner.",
+            b: "Provide a safe, private environment and conduct a thorough physical assessment.",
+            c: "Call the husband to hear his side of the story.",
+            d: "Tell the patient she must report the incident to the police immediately.",
+            k: "B",
+            str: "STR: Instructing the patient to call the police (D) as the primary legal obligation.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Patient safety, privacy, and stabilization are the priorities before legal reporting or social work interventions are initiated.",
+        },
+        {
+            id: 107,
+            v: "A patient with 'OCD' feels anxious because the nurse interrupted his hand-washing ritual. Which physical response is most likely to occur?",
+            a: "Bradycardia and hypotension.",
+            b: "Increased heart rate (tachycardia) and rapid respirations.",
+            c: "Immediate onset of deep sleep.",
+            d: "Decrease in core body temperature.",
+            k: "B",
+            str: "STR: The patient will feel immediately calm (C) because the ritual is tiring.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Anxiety triggers the sympathetic nervous system, leading to physical 'fight or flight' symptoms.",
+        },
+        {
+            id: 108,
+            v: "A patient with 'Insomnia' asks the nurse for help with sleeping. Which sleep hygiene suggestion is most appropriate?",
+            a: "Drink a cup of hot coffee shortly before bedtime.",
+            b: "Avoid using mobile phones or screens while in bed.",
+            c: "Take a long nap in the afternoon so you aren't too tired at night.",
+            d: "Perform vigorous exercise 30 minutes before going to sleep.",
+            k: "B",
+            str: "STR: Doing heavy exercise (D) to tire the body out.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Blue light from screens disrupts melatonin production. Vigorous exercise (D) stimulates adrenaline, making sleep more difficult.",
+        },
+        {
+            id: 109,
+            v: "A patient shows signs of 'Extrapyramidal Symptoms' (EPS) such as tongue protrusion and involuntary chewing after years of taking antipsychotics. What is this called?",
+            a: "Akathisia.",
+            b: "Tardive Dyskinesia.",
+            c: "Oculogyric crisis.",
+            d: "Neuroleptic Malignant Syndrome.",
+            k: "B",
+            str: "STR: Akathisia (A) because the tongue is moving constantly.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Tardive Dyskinesia is a late-onset, potentially irreversible side effect. The AIMS scale is used to monitor these involuntary movements.",
+        },
+        {
+            id: 110,
+            v: "A patient with 'Panic Disorder' is afraid to go to the grocery store because he fears a panic attack might occur. Which condition has developed?",
+            a: "Social Phobia.",
+            b: "Agoraphobia.",
+            c: "Claustrophobia.",
+            d: "Generalized Anxiety Disorder.",
+            k: "B",
+            str: "STR: Social Phobia (A) because he is afraid of being seen by others during an attack.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Agoraphobia is the fear of being in places where escape might be difficult or help unavailable during a panic attack.",
+        },
+        {
+            id: 111,
+            v: "A nurse administers a sedative to an aggressive patient without a doctor's order in a non-emergency situation. Which ethical principle is violated?",
+            a: "Veracity.",
+            b: "Autonomy and Non-maleficence.",
+            c: "Fidelity.",
+            d: "Justice.",
+            k: "B",
+            str: "STR: Veracity (A) because the nurse was not being truthful about the medication.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Giving medication without consent or an order (unless it is a life-saving emergency) violates the patient's right to self-determination (Autonomy) and risks harm (Maleficence).",
+        },
+        {
+            id: 112,
+            v: "A teenager with 'Anorexia' has fine, downy hair growing on her back and arms. What is the name of this finding?",
+            a: "Alopecia.",
+            b: "Lanugo.",
+            c: "Hirsutism.",
+            d: "Striae.",
+            k: "B",
+            str: "STR: Hirsutism (C) because it refers to excess hair growth.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Lanugo is a physiological mechanism where the body grows fine hair to conserve heat when body fat is severely depleted.",
+        },
+        {
+            id: 113,
+            v: "Which of the following behaviors is an early sign of 'relapse' in a patient with 'Schizophrenia'?",
+            a: "Increased participation in social activities.",
+            b: "Decline in self-hygiene and withdrawal from others.",
+            c: "Sleeping for more than 10 hours a day.",
+            d: "An increase in appetite.",
+            k: "B",
+            str: "STR: Sleeping too much (C) as a sign of depression.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Behavioral changes such as neglecting hygiene and social withdrawal (negative symptoms) often precede the return of hallucinations/delusions.",
+        },
+        {
+            id: 114,
+            v: "A patient with 'Heroin Addiction' shows symptoms of nausea, muscle cramps, and rhinorrhea (runny nose). How should the nurse interpret this?",
+            a: "The patient is currently intoxicated.",
+            b: "The patient is experiencing withdrawal symptoms.",
+            c: "The patient has seasonal allergies.",
+            d: "The patient is experiencing an overdose.",
+            k: "B",
+            str: "STR: Intoxication (A) because Heroin is a powerful drug.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Opioid withdrawal symptoms are often described as a 'severe flu' (runny nose, muscle aches, nausea).",
+        },
+        {
+            id: 115,
+            v: "A nurse uses the phrase, 'I understand that you feel afraid, but I do not see that shadow.' Which communication technique is this?",
+            a: "Presenting reality.",
+            b: "Agreeing.",
+            c: "Persuading.",
+            d: "Requesting an explanation.",
+            k: "A",
+            str: "STR: Persuading (C) so the patient will trust the nurse.",
+            scfhs: "SCFHS: (A) 'Safe Action'. This technique helps the patient stay grounded in reality without demeaning or arguing against their hallucinatory experience.",
+        },
+        {
+            id: 116,
+            v: "A patient is diagnosed with 'Generalized Anxiety Disorder'. Which of the following symptoms is most characteristic?",
+            a: "Repetitive hand-washing rituals.",
+            b: "Excessive, uncontrollable worry about various things for at least 6 months.",
+            c: "Flashbacks of a traumatic event.",
+            d: "Fear of heights.",
+            k: "B",
+            str: "STR: Flashbacks (C) because of past trauma.",
+            scfhs: "SCFHS: (B) 'Safe Action'. (A) is OCD, (C) is PTSD, (D) is a specific phobia. GAD is characterized by chronic, generalized anxiety.",
+        },
+        {
+            id: 117,
+            v: "A patient with 'Bipolar Disorder' takes food from another patient's plate. What should the nurse do?",
+            a: "Scold the patient in front of others so he feels ashamed.",
+            b: "Lead the patient back to his table and provide short, firm instructions.",
+            c: "Ignore it because the patient is in a manic state.",
+            d: "Place the patient in a seclusion room.",
+            k: "B",
+            str: "STR: Ignoring the behavior (C) because he isn't aware of his actions.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Limit-setting must be enforced calmly and immediately to maintain unit order and ensure the safety/rights of other patients.",
+        },
+        {
+            id: 118,
+            v: "Which medication often causes 'Agranulocytosis' as a side effect, requiring regular blood tests?",
+            a: "Lithium.",
+            b: "Clozapine.",
+            c: "Fluoxetine.",
+            d: "Lorazepam.",
+            k: "B",
+            str: "STR: Lithium (A) because of its effect on blood cells.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Clozapine requires mandatory monitoring of the White Blood Cell (WBC) count due to the risk of fatal infection from low neutrophils.",
+        },
+        {
+            id: 119,
+            v: "What is the primary goal of 'Milieu Therapy' in a psychiatric unit?",
+            a: "To administer medications on a regular schedule.",
+            b: "To create a safe, therapeutic environment that facilitates healing.",
+            c: "To perform electroconvulsive therapy.",
+            d: "To separate patients from the outside world forever.",
+            k: "B",
+            str: "STR: Giving medications (A) in a structured way.",
+            scfhs: "SCFHS: (B) 'Safe Action'. Milieu therapy uses social interactions and the daily structure of the environment as primary tools for rehabilitation.",
+        },
+        {
+            id: 120,
+            v: "A patient with 'Suicidal Ideation' has a specific plan and access to a firearm. What is the priority action?",
+            a: "Ask the patient to sign a 'no-harm' contract.",
+            b: "Initiate constant one-to-one (1:1) observation.",
+            c: "Provide the patient with free time to reflect.",
+            d: "Wait for the doctor to arrive to make a decision.",
+            k: "B",
+            str: "STR: Creating a safety contract (A) as a guarantee.",
+            scfhs: "SCFHS: (B) 'Safe Action' (NPSG: Patient Safety). Safety contracts (A) are not evidence-based for high-risk patients. Direct observation is the only way to ensure physical safety.",
+        }
+
+ ];
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let timerInterval;
+    let secondsElapsed = 0;
+    let selectedOption = null;
+
+    function startExam() {
+        const nameInput = document.getElementById('candidate-name').value;
+        if (!nameInput) return alert("Please enter your name");
+        
+        document.getElementById('display-name').innerText = "Nurse: " + nameInput;
+        document.getElementById('welcome-screen').classList.remove('active');
+        document.getElementById('exam-screen').classList.add('active');
+        
+        startTimer();
+        loadQuestion();
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            secondsElapsed++;
+            let mins = Math.floor(secondsElapsed / 60);
+            let secs = secondsElapsed % 60;
+            document.getElementById('timer-text').innerText = 
+                `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }, 1000);
+    }
+
+    function loadQuestion() {
+        const q = rawQuestions[currentQuestionIndex];
+        selectedOption = null;
+        
+        document.getElementById('progress-text').innerText = `Q ${currentQuestionIndex + 1}/${rawQuestions.length}`;
+        document.getElementById('vignette').innerText = q.v;
+        document.getElementById('rationale-area').style.display = 'none';
+        document.getElementById('next-btn').disabled = true;
+        document.getElementById('rat-btn').disabled = true;
+
+        const optionsDiv = document.getElementById('options');
+        optionsDiv.innerHTML = '';
+
+        const letters = ['A', 'B', 'C', 'D'];
+        const choiceTexts = [q.a, q.b, q.c, q.d];
+
+        choiceTexts.forEach((text, index) => {
+            const button = document.createElement('button');
+            button.className = 'opt';
+            button.innerText = `${letters[index]}. ${text}`;
+            button.onclick = () => selectChoice(button, letters[index]);
+            optionsDiv.appendChild(button);
+        });
+    }
+
+    function selectChoice(element, letter) {
+        const allOpts = document.querySelectorAll('.opt');
+        allOpts.forEach(opt => opt.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        selectedOption = letter;
+        document.getElementById('next-btn').disabled = false;
+        document.getElementById('rat-btn').disabled = false;
+    }
+
+    function showRationale() {
+        const q = rawQuestions[currentQuestionIndex];
+        const area = document.getElementById('rationale-area');
+        
+        area.innerHTML = `
+            <p><strong>Correct Answer: ${q.k}</strong></p>
+            <p><strong>Strategy:</strong> ${q.str}</p>
+            <p><strong>Rationale:</strong> ${q.scfhs}</p>
+        `;
+        area.style.display = 'block';
+    }
+
+    function nextQuestion() {
+        if (selectedOption === rawQuestions[currentQuestionIndex].k) {
+            score++;
+        }
+
+        currentQuestionIndex++;
+
+        if (currentQuestionIndex < rawQuestions.length) {
+            loadQuestion();
+        } else {
+            finishExam();
+        }
+    }
+
+    function finishExam() {
+        clearInterval(timerInterval);
+        document.getElementById('exam-screen').classList.remove('active');
+        document.getElementById('result-screen').classList.add('active');
+        
+        const percent = Math.round((score / rawQuestions.length) * 100);
+        document.getElementById('score-display').innerText = percent + "%";
+        
+        const feedback = percent >= 70 ? "Excellent! You are ready for the SCFHS Exam." : "Keep practicing. Focus on Safety Protocols.";
+        document.getElementById('feedback-text').innerText = feedback;
+    }
+</script>
+</body>
+</html>
